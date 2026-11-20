@@ -1,0 +1,896 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080d1b">
+<title>CheatGPT AI</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #080d1b;
+    --panel: #101a2d;
+    --card: #15223a;
+    --text: #f1f5ff;
+    --muted: #94a3b8;
+    --blue: #078cff;
+    --cyan: #00d9ff;
+    --border: #243b5d;
+}
+
+body.light {
+    --bg: #f1f5f9;
+    --panel: #ffffff;
+    --card: #e2eaf5;
+    --text: #172033;
+    --muted: #64748b;
+    --border: #cbd5e1;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, sans-serif;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.app {
+    height: 100%;
+    display: flex;
+}
+
+.sidebar {
+    width: 270px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.logo {
+    font-size: 25px;
+    font-weight: 900;
+    color: var(--cyan);
+    text-shadow: 0 0 15px #008cff;
+    padding: 12px 0;
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    color: var(--text);
+    background: var(--card);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+button:active {
+    transform: scale(.97);
+}
+
+.new-chat {
+    border: 1px solid var(--blue);
+    background: #0754a0;
+    color: white;
+    width: 100%;
+}
+
+.history-title {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 10px;
+}
+
+#history {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.history-item {
+    display: flex;
+    gap: 5px;
+    margin: 7px 0;
+}
+
+.history-item button:first-child {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.delete {
+    color: #ff7272;
+}
+
+.sidebar-bottom {
+    display: grid;
+    gap: 8px;
+}
+
+.main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    height: 65px;
+    flex-shrink: 0;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-title {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.online {
+    color: #22c55e;
+    font-size: 12px;
+}
+
+#chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 25px 15px;
+    scroll-behavior: smooth;
+}
+
+.welcome {
+    max-width: 600px;
+    margin: 12vh auto 20px;
+    text-align: center;
+}
+
+.welcome h1 {
+    font-size: 34px;
+    margin-bottom: 12px;
+}
+
+.welcome h1 span {
+    color: var(--cyan);
+    text-shadow: 0 0 15px var(--blue);
+}
+
+.welcome p {
+    color: var(--muted);
+}
+
+.suggestions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 35px;
+}
+
+.suggestions button {
+    border: 1px solid var(--border);
+    text-align: left;
+    min-height: 65px;
+}
+
+.message {
+    max-width: 850px;
+    margin: 0 auto 22px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: #0754a0;
+    display: grid;
+    place-items: center;
+}
+
+.content {
+    min-width: 0;
+    max-width: 100%;
+    background: var(--card);
+    padding: 12px 15px;
+    border-radius: 12px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.user .content {
+    background: #064c91;
+    color: white;
+}
+
+.actions {
+    margin-top: 8px;
+}
+
+.actions button {
+    padding: 5px 10px;
+    font-size: 12px;
+    margin-right: 5px;
+}
+
+.input-area {
+    padding: 12px 15px 18px;
+    border-top: 1px solid var(--border);
+}
+
+.input-box {
+    max-width: 850px;
+    margin: auto;
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    padding: 8px;
+}
+
+.input-box input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 15px;
+    padding: 10px 5px;
+}
+
+.send {
+    background: var(--blue);
+    color: white;
+    font-size: 20px;
+    min-width: 42px;
+}
+
+.footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 10px;
+}
+
+.mobile-menu {
+    display: none;
+}
+
+@media(max-width:650px) {
+
+    .sidebar {
+        position: fixed;
+        z-index: 10;
+        top: 0;
+        bottom: 0;
+        left: -280px;
+        transition: .25s;
+    }
+
+    .sidebar.open {
+        left: 0;
+    }
+
+    .mobile-menu {
+        display: block;
+    }
+
+    .welcome h1 {
+        font-size: 27px;
+    }
+
+    .suggestions {
+        grid-template-columns: 1fr;
+    }
+
+    #chat {
+        padding: 18px 10px;
+    }
+
+    .input-area {
+        padding: 10px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<aside class="sidebar" id="sidebar">
+
+    <div class="logo">⚡ CheatGPT</div>
+
+    <button class="new-chat" onclick="newChat()">
+        ＋ New Chat
+    </button>
+
+    <div class="history-title">CHAT HISTORY</div>
+
+    <div id="history"></div>
+
+    <div class="sidebar-bottom">
+
+        <button onclick="toggleTheme()">
+            🌙 / ☀️ Theme
+        </button>
+
+        <button onclick="clearAll()">
+            🗑 Clear History
+        </button>
+
+    </div>
+
+</aside>
+
+<main class="main">
+
+<header class="header">
+
+    <div style="display:flex;gap:10px;align-items:center">
+
+        <button class="mobile-menu"
+                onclick="toggleSidebar()">☰</button>
+
+        <div class="header-title">
+            CheatGPT <span style="color:#00d9ff">AI</span>
+        </div>
+
+    </div>
+
+    <div class="online">● AI Assistant</div>
+
+</header>
+
+<section id="chat">
+
+    <div class="welcome" id="welcome">
+
+        <h1>Hello, <span>Welcome!</span></h1>
+
+        <p>What can I help you with today?</p>
+
+        <div class="suggestions">
+
+            <button onclick="suggest('Explain JavaScript')">
+                💻 Explain JavaScript
+            </button>
+
+            <button onclick="suggest('Create an Android app')">
+                📱 Android Development
+            </button>
+
+            <button onclick="suggest('Teach me HTML and CSS')">
+                🌐 Learn Web Development
+            </button>
+
+            <button onclick="suggest('Tell me about AI')">
+                🤖 Learn About AI
+            </button>
+
+        </div>
+
+    </div>
+
+</section>
+
+<div class="input-area">
+
+    <div class="input-box">
+
+        <button onclick="startVoice()" title="Voice Input">
+            🎤
+        </button>
+
+        <input
+            id="userInput"
+            type="text"
+            placeholder="Message CheatGPT..."
+            autocomplete="off"
+        >
+
+        <button onclick="sendMessage()" class="send">
+            ↑
+        </button>
+
+    </div>
+
+    <div class="footer">
+        CheatGPT AI · Powered by OpenAI
+    </div>
+
+</div>
+
+</main>
+
+</div>
+
+<script>
+
+const chat = document.getElementById("chat");
+const input = document.getElementById("userInput");
+
+let conversation = [];
+let chats = JSON.parse(
+    localStorage.getItem("cheatgpt_chats") || "[]"
+);
+
+let currentId = null;
+let busy = false;
+
+function saveChats() {
+    localStorage.setItem(
+        "cheatgpt_chats",
+        JSON.stringify(chats)
+    );
+}
+
+function newChat() {
+
+    if (busy) return;
+
+    currentId = null;
+    conversation = [];
+
+    renderChat();
+
+    document.getElementById("sidebar")
+        .classList.remove("open");
+
+    input.focus();
+}
+
+function renderChat() {
+
+    chat.innerHTML = "";
+
+    if (conversation.length === 0) {
+
+        chat.innerHTML = `
+        <div class="welcome">
+            <h1>Hello, <span>Welcome!</span></h1>
+            <p>What can I help you with today?</p>
+
+            <div class="suggestions">
+                <button onclick="suggest('Explain JavaScript')">
+                    💻 Explain JavaScript
+                </button>
+
+                <button onclick="suggest('Create an Android app')">
+                    📱 Android Development
+                </button>
+
+                <button onclick="suggest('Teach me HTML and CSS')">
+                    🌐 Learn Web Development
+                </button>
+
+                <button onclick="suggest('Tell me about AI')">
+                    🤖 Learn About AI
+                </button>
+            </div>
+        </div>`;
+
+        return;
+    }
+
+    conversation.forEach((msg, index) => {
+
+        createMessage(msg.content, msg.role, false);
+
+    });
+
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function createMessage(text, role, actions = true) {
+
+    const message = document.createElement("div");
+
+    message.className = "message " + role;
+
+    const avatar = document.createElement("div");
+    avatar.className = "avatar";
+
+    avatar.textContent =
+        role === "user" ? "👤" : "🤖";
+
+    const wrap = document.createElement("div");
+
+    wrap.style.minWidth = "0";
+
+    const content = document.createElement("div");
+    content.className = "content";
+    content.textContent = text;
+
+    wrap.appendChild(content);
+
+    if (actions && role === "assistant") {
+
+        const buttons = document.createElement("div");
+        buttons.className = "actions";
+
+        const copy = document.createElement("button");
+        copy.textContent = "📋 Copy";
+
+        copy.onclick = () => {
+            navigator.clipboard.writeText(
+                content.textContent
+            );
+        };
+
+        const speak = document.createElement("button");
+        speak.textContent = "🔊 Speak";
+
+        speak.onclick = () => {
+            speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(
+                content.textContent
+            );
+
+            speechSynthesis.speak(utterance);
+        };
+
+        buttons.append(copy, speak);
+        wrap.appendChild(buttons);
+    }
+
+    message.append(avatar, wrap);
+
+    chat.appendChild(message);
+
+    chat.scrollTop = chat.scrollHeight;
+
+    return content;
+}
+
+function suggest(text) {
+    input.value = text;
+    sendMessage();
+}
+
+function updateCurrentChat() {
+
+    if (!currentId) {
+        currentId = Date.now();
+    }
+
+    let existing = chats.find(
+        c => c.id === currentId
+    );
+
+    const title =
+        conversation.find(m => m.role === "user")
+        ?.content.slice(0, 35) || "New Chat";
+
+    if (!existing) {
+
+        existing = {
+            id: currentId,
+            title: title,
+            messages: conversation
+        };
+
+        chats.unshift(existing);
+
+    } else {
+
+        existing.messages = conversation;
+        existing.title = title;
+
+    }
+
+    saveChats();
+    renderHistory();
+}
+
+function renderHistory() {
+
+    const history = document.getElementById("history");
+
+    history.innerHTML = "";
+
+    chats.forEach(item => {
+
+        const row = document.createElement("div");
+        row.className = "history-item";
+
+        const open = document.createElement("button");
+
+        open.textContent = item.title;
+
+        open.onclick = () => loadChat(item.id);
+
+        const remove = document.createElement("button");
+        remove.className = "delete";
+        remove.textContent = "×";
+
+        remove.onclick = () => deleteChat(item.id);
+
+        row.append(open, remove);
+
+        history.appendChild(row);
+
+    });
+}
+
+function loadChat(id) {
+
+    if (busy) return;
+
+    const item = chats.find(c => c.id === id);
+
+    if (!item) return;
+
+    currentId = id;
+    conversation = [...item.messages];
+
+    renderChat();
+
+    document.getElementById("sidebar")
+        .classList.remove("open");
+}
+
+function deleteChat(id) {
+
+    if (busy) return;
+
+    chats = chats.filter(c => c.id !== id);
+
+    if (currentId === id) {
+        currentId = null;
+        conversation = [];
+        renderChat();
+    }
+
+    saveChats();
+    renderHistory();
+}
+
+function clearAll() {
+
+    if (busy) return;
+
+    if (!confirm("Delete all chat history?")) return;
+
+    chats = [];
+    currentId = null;
+    conversation = [];
+
+    saveChats();
+    renderHistory();
+    renderChat();
+}
+
+function toggleTheme() {
+
+    document.body.classList.toggle("light");
+
+    localStorage.setItem(
+        "cheatgpt_theme",
+        document.body.classList.contains("light")
+            ? "light" : "dark"
+    );
+}
+
+function toggleSidebar() {
+
+    document.getElementById("sidebar")
+        .classList.toggle("open");
+}
+
+async function sendMessage() {
+
+    if (busy) return;
+
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    input.value = "";
+
+    if (conversation.length === 0) {
+        chat.innerHTML = "";
+    }
+
+    conversation.push({
+        role: "user",
+        content: text
+    });
+
+    createMessage(text, "user");
+
+    const answerBox = createMessage(
+        "Thinking...",
+        "assistant",
+        false
+    );
+
+    busy = true;
+
+    let answer = "";
+
+    try {
+
+        const response = await fetch("/api/chat", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                messages: conversation.slice(-20)
+            })
+
+        });
+
+        if (!response.ok) {
+
+            const error = await response.json();
+
+            throw new Error(error.error || "Request failed");
+
+        }
+
+        const reader = response.body.getReader();
+
+        const decoder = new TextDecoder();
+
+        let buffer = "";
+
+        answer = "";
+
+        while (true) {
+
+            const result = await reader.read();
+
+            if (result.done) break;
+
+            buffer += decoder.decode(
+                result.value,
+                { stream: true }
+            );
+
+            const events = buffer.split("\n\n");
+
+            buffer = events.pop();
+
+            for (const event of events) {
+
+                const line = event
+                    .split("\n")
+                    .find(l => l.startsWith("data: "));
+
+                if (!line) continue;
+
+                const data = line.substring(6);
+
+                if (data === "[DONE]") continue;
+
+                const parsed = JSON.parse(data);
+
+                if (parsed.error) {
+                    throw new Error(parsed.error);
+                }
+
+                if (parsed.text) {
+
+                    answer += parsed.text;
+
+                    answerBox.textContent = answer;
+
+                    chat.scrollTop = chat.scrollHeight;
+
+                }
+            }
+        }
+
+        if (!answer) {
+            throw new Error("Empty AI response");
+        }
+
+        conversation.push({
+            role: "assistant",
+            content: answer
+        });
+
+        updateCurrentChat();
+
+    } catch (error) {
+
+        answerBox.textContent =
+            "⚠️ " + error.message;
+
+        if (conversation[conversation.length - 1]?.role === "user") {
+            // Keep the user message so it can be retried.
+        }
+
+    } finally {
+
+        busy = false;
+
+        renderHistory();
+
+        chat.scrollTop = chat.scrollHeight;
+
+    }
+}
+
+function startVoice() {
+
+    const SpeechRecognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+
+        alert("Voice recognition is not supported in this browser.");
+
+        return;
+    }
+
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = "km-KH";
+    recognition.interimResults = false;
+
+    recognition.onresult = function(event) {
+
+        input.value =
+            event.results[0][0].transcript;
+
+    };
+
+    recognition.onerror = function() {
+        alert("Voice recognition failed.");
+    };
+
+    recognition.start();
+}
+
+input.addEventListener("keydown", function(event) {
+
+    if (event.key === "Enter" && !event.shiftKey) {
+
+        event.preventDefault();
+
+        sendMessage();
+
+    }
+
+});
+
+if (localStorage.getItem("cheatgpt_theme") === "light") {
+    document.body.classList.add("light");
+}
+
+renderHistory();
+renderChat();
+
+</script>
+
+</body>
+</html>
