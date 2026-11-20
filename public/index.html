@@ -24,12 +24,23 @@ button{cursor:pointer}
 .brand-name{font-size:20px;font-weight:800;letter-spacing:-.7px}.brand-name span{color:var(--cyan)}
 .new-chat{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;padding:12px;border:1px solid #1688ff77;border-radius:12px;background:linear-gradient(110deg,#0753a7,#0878d5);color:white;font-weight:650}
 .section-label{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);padding:8px 8px 0}
+.history-search{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 9px;color:var(--muted)}
+.history-search:focus-within{border-color:var(--blue)}
+.history-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--text);padding:10px 0;font-size:12px}
+.history-search button{border:0;background:transparent;color:var(--muted);font-size:17px;padding:2px 4px}
+.history-toolbar{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:10px;padding:1px 3px}
+.history-toolbar button{border:0;background:transparent;color:var(--muted);font-size:10px;padding:5px}
 #history{overflow:auto;flex:1}
-.history-row{display:flex;gap:4px;margin:5px 0}
-.history-open{min-width:0;flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:transparent;color:var(--muted);padding:10px;border-radius:9px;font-size:13px}
+.history-row{display:flex;align-items:center;gap:3px;margin:4px 0;border-radius:9px}
+.history-row:hover{background:var(--panel2)}
+.history-open{min-width:0;flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:transparent;color:var(--muted);padding:10px 7px;border-radius:9px;font-size:12px}
 .history-open:hover,.history-open.active{background:var(--panel2);color:var(--text)}
-.history-delete{background:transparent;color:var(--muted);padding:7px 10px}
-.history-delete:hover{color:var(--danger)}
+.history-actions{display:flex;gap:1px}
+.history-action{border:0;background:transparent;color:var(--muted);padding:7px 6px;border-radius:6px;font-size:12px}
+.history-action:hover{background:var(--panel);color:var(--text)}
+.history-action.delete:hover{color:var(--danger)}
+.history-empty{color:var(--muted);font-size:12px;line-height:1.6;padding:12px 8px}
+.history-date{font-size:10px;color:var(--muted);padding:11px 7px 3px;text-transform:uppercase;letter-spacing:.8px}
 .sidebar-bottom{border-top:1px solid var(--line);padding-top:12px;display:grid;gap:7px}
 .side-action{display:flex;gap:10px;align-items:center;text-align:left;background:transparent;color:var(--muted);padding:10px;border-radius:9px}
 .side-action:hover{background:var(--panel2);color:var(--text)}
@@ -104,7 +115,16 @@ button{cursor:pointer}
   <aside class="sidebar" id="sidebar">
     <div class="brand"><div class="brand-mark">⚡</div><div class="brand-name">Cheat<span>GPT</span></div></div>
     <button class="new-chat" id="newChat">＋ <span>New chat</span></button>
-    <div class="section-label">RECENT CONVERSATIONS</div>
+    <div class="section-label">CONVERSATIONS</div>
+    <div class="history-search">
+      <span>⌕</span>
+      <input id="historySearch" type="search" placeholder="Search chats..." aria-label="Search conversations">
+      <button id="clearSearch" title="Clear search" aria-label="Clear search">×</button>
+    </div>
+    <div class="history-toolbar">
+      <span id="historyCount">0 conversations</span>
+      <button id="sortHistory" title="Toggle sort order">↕ Newest</button>
+    </div>
     <div id="history"></div>
     <div class="sidebar-bottom">
       <button class="side-action" id="themeButton">◐ <span>Toggle appearance</span></button>
@@ -137,7 +157,7 @@ button{cursor:pointer}
 <script>
 const chat=document.getElementById("chat"),input=document.getElementById("userInput");
 const sendButton=document.getElementById("sendButton"),historyBox=document.getElementById("history");
-let chats=loadChats(),currentId=null,conversation=[],busy=false;
+let chats=loadChats(),currentId=null,conversation=[],busy=false,historyNewestFirst=true;
 
 function loadChats(){try{return JSON.parse(localStorage.getItem("cheatgpt_chats")||"[]")}catch{return []}}
 function saveChats(){try{localStorage.setItem("cheatgpt_chats",JSON.stringify(chats))}catch{showToast("Storage is full. Some history may not save.")}}
@@ -187,25 +207,55 @@ function addMessage(text,role,withTools=true,renderMarkdown=false){
  row.append(avatar,body);chat.appendChild(row);chat.scrollTop=chat.scrollHeight;return bubble;
 }
 function renderHistory(){
+ const query=(document.getElementById("historySearch")?.value||"").trim().toLowerCase();
+ const sorted=[...chats].sort((a,b)=>historyNewestFirst?(b.updatedAt||b.id)-(a.updatedAt||a.id):(a.updatedAt||a.id)-(b.updatedAt||b.id));
+ const filtered=sorted.filter(item=>{
+  const title=(item.title||"").toLowerCase();
+  const content=(item.messages||[]).map(m=>m.content||"").join(" ").toLowerCase();
+  return !query||title.includes(query)||content.includes(query);
+ });
  historyBox.innerHTML="";
- chats.forEach(item=>{
+ document.getElementById("historyCount").textContent=`${filtered.length} of ${chats.length} chats`;
+ document.getElementById("sortHistory").textContent=historyNewestFirst?"↕ Newest":"↕ Oldest";
+ if(!filtered.length){
+  const empty=document.createElement("div");empty.className="history-empty";
+  empty.textContent=query?"No conversations match your search.":"No conversations yet. Start a new chat!";
+  historyBox.appendChild(empty);return;
+ }
+ filtered.forEach(item=>{
   const row=document.createElement("div");row.className="history-row";
-  const open=document.createElement("button");open.className="history-open"+(item.id===currentId?" active":"");open.textContent=item.title||"New chat";open.onclick=()=>loadChat(item.id);
-  const del=document.createElement("button");del.className="history-delete";del.textContent="×";del.title="Delete chat";del.onclick=()=>deleteChat(item.id);
-  row.append(open,del);historyBox.appendChild(row);
+  const open=document.createElement("button");open.className="history-open"+(item.id===currentId?" active":"");open.textContent=item.title||"New chat";open.title=item.title||"New chat";open.onclick=()=>loadChat(item.id);
+  const actions=document.createElement("div");actions.className="history-actions";
+  const rename=document.createElement("button");rename.className="history-action";rename.textContent="✎";rename.title="Rename chat";rename.setAttribute("aria-label","Rename chat");rename.onclick=()=>renameChat(item.id);
+  const duplicate=document.createElement("button");duplicate.className="history-action";duplicate.textContent="▣";duplicate.title="Duplicate chat";duplicate.setAttribute("aria-label","Duplicate chat");duplicate.onclick=()=>duplicateChat(item.id);
+  const del=document.createElement("button");del.className="history-action delete";del.textContent="×";del.title="Delete chat";del.setAttribute("aria-label","Delete chat");del.onclick=()=>deleteChat(item.id);
+  actions.append(rename,duplicate,del);row.append(open,actions);historyBox.appendChild(row);
  });
 }
 function saveCurrentChat(){
  if(!currentId)currentId=Date.now();
  const first=conversation.find(m=>m.role==="user"),title=first?first.content.slice(0,38):"New chat";
  const existing=chats.find(c=>c.id===currentId);
- if(existing){existing.messages=conversation;existing.title=title}
- else chats.unshift({id:currentId,title,messages:conversation});
+ if(existing){existing.messages=conversation;existing.updatedAt=Date.now();if(!existing.customTitle)existing.title=title}
+ else chats.unshift({id:currentId,title,messages:conversation,createdAt:Date.now(),updatedAt:Date.now(),customTitle:false});
  saveChats();renderHistory();
 }
 function newChat(){if(busy)return;currentId=null;conversation=[];showWelcome();renderHistory();closeSidebar();input.focus()}
 function loadChat(id){if(busy)return;const item=chats.find(c=>c.id===id);if(!item)return;currentId=id;conversation=item.messages.map(m=>({...m}));chat.innerHTML="";conversation.forEach(m=>addMessage(m.content,m.role,m.role==="assistant",m.role==="assistant"));renderHistory();closeSidebar()}
-function deleteChat(id){if(busy)return;chats=chats.filter(c=>c.id!==id);if(currentId===id){currentId=null;conversation=[];showWelcome()}saveChats();renderHistory()}
+function renameChat(id){
+ const item=chats.find(c=>c.id===id);if(!item)return;
+ const next=prompt("Enter a new conversation name:",item.title||"New chat");
+ if(next===null)return;
+ const title=next.trim();if(!title){showToast("Chat name cannot be empty");return}
+ item.title=title.slice(0,80);item.customTitle=true;item.updatedAt=Date.now();
+ saveChats();renderHistory();showToast("Conversation renamed");
+}
+function duplicateChat(id){
+ const item=chats.find(c=>c.id===id);if(!item)return;
+ const copy={...item,id:Date.now()+Math.floor(Math.random()*1000),title:(item.title||"New chat")+" (copy)",messages:item.messages.map(m=>({...m})),createdAt:Date.now(),updatedAt:Date.now(),customTitle:true};
+ chats.unshift(copy);saveChats();renderHistory();showToast("Conversation duplicated");
+}
+function deleteChat(id){if(busy)return;const item=chats.find(c=>c.id===id);if(!item)return;if(!confirm(`Delete "${item.title||"New chat"}"? This cannot be undone.`))return;chats=chats.filter(c=>c.id!==id);if(currentId===id){currentId=null;conversation=[];showWelcome()}saveChats();renderHistory();showToast("Conversation deleted")}
 function toggleTheme(){document.body.classList.toggle("light");localStorage.setItem("cheatgpt_theme",document.body.classList.contains("light")?"light":"dark")}
 function openSidebar(){document.getElementById("sidebar").classList.add("open");document.getElementById("backdrop").classList.add("show")}
 function closeSidebar(){document.getElementById("sidebar").classList.remove("open");document.getElementById("backdrop").classList.remove("show")}
@@ -253,7 +303,10 @@ document.getElementById("themeButton").onclick=toggleTheme;
 document.getElementById("menuButton").onclick=openSidebar;
 document.getElementById("backdrop").onclick=closeSidebar;
 document.getElementById("voiceButton").onclick=startVoice;
-document.getElementById("clearHistory").onclick=()=>{if(busy)return;if(confirm("Delete all saved conversations?")){chats=[];currentId=null;conversation=[];saveChats();renderHistory();showWelcome()}};
+document.getElementById("clearHistory").onclick=()=>{if(busy)return;if(confirm("Delete all saved conversations? This cannot be undone.")){chats=[];currentId=null;conversation=[];saveChats();renderHistory();showWelcome()}};
+document.getElementById("historySearch").addEventListener("input",renderHistory);
+document.getElementById("clearSearch").onclick=()=>{document.getElementById("historySearch").value="";renderHistory()};
+document.getElementById("sortHistory").onclick=()=>{historyNewestFirst=!historyNewestFirst;renderHistory()};
 input.addEventListener("input",resizeInput);
 input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}});
 chat.addEventListener("click",e=>{const btn=e.target.closest("[data-prompt]");if(btn){input.value=btn.dataset.prompt;sendMessage()}});
