@@ -97,6 +97,21 @@ button{cursor:pointer}
 .toast{position:absolute;left:50%;bottom:100px;transform:translateX(-50%);background:#173454;color:#eaf6ff;padding:10px 15px;border-radius:9px;font-size:12px;opacity:0;pointer-events:none;transition:.2s;z-index:30}
 .toast.show{opacity:1}
 .backdrop{display:none}
+
+.modal-backdrop{display:none;position:fixed;inset:0;background:#0009;z-index:50;align-items:center;justify-content:center;padding:16px}
+.modal-backdrop.show{display:flex}
+.settings-panel{width:min(520px,100%);max-height:90dvh;overflow:auto;background:var(--sidebar);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:var(--shadow)}
+.settings-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:22px}
+.settings-heading h2{margin:0;font-size:19px}.settings-heading p,.settings-note{color:var(--muted);font-size:12px;line-height:1.6;margin:7px 0 0}
+.settings-label{display:block;font-size:12px;font-weight:700;margin:17px 0 7px}
+.settings-input{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text);padding:11px 12px;font:13px Inter,Arial;outline:none}
+.settings-input:focus{border-color:var(--blue)}
+.settings-textarea{min-height:115px;resize:vertical;line-height:1.6}
+.settings-footer{display:flex;justify-content:flex-end;gap:9px;margin-top:22px}
+.primary-btn,.secondary-btn{border-radius:9px;padding:10px 14px;font-size:12px;font-weight:700}
+.primary-btn{background:linear-gradient(110deg,#0753a7,#0878d5);color:white;border:1px solid #1688ff77}
+.secondary-btn{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+
 @media(max-width:720px){
  .sidebar{position:fixed;left:-290px;top:0;bottom:0;transition:left .22s;box-shadow:var(--shadow)}
  .sidebar.open{left:0}.backdrop.show{display:block;position:fixed;inset:0;background:#0008;z-index:10}
@@ -127,6 +142,8 @@ button{cursor:pointer}
     </div>
     <div id="history"></div>
     <div class="sidebar-bottom">
+      <button class="side-action" id="exportChat">⇩ <span>Export current chat</span></button>
+      <button class="side-action" id="settingsButton">⚙ <span>Settings & profile</span></button>
       <button class="side-action" id="themeButton">◐ <span>Toggle appearance</span></button>
       <button class="side-action" id="clearHistory">⌫ <span>Clear conversations</span></button>
     </div>
@@ -148,6 +165,17 @@ button{cursor:pointer}
       <div class="disclaimer">CheatGPT can make mistakes. Check important information.</div>
     </div>
     <div class="toast" id="toast"></div>
+    <div class="modal-backdrop" id="settingsModal" aria-hidden="true">
+      <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="settings-heading"><div><h2 id="settingsTitle">CheatGPT Settings</h2><p>Personalize your chat experience on this browser.</p></div><button class="icon-btn" id="closeSettings" aria-label="Close settings">×</button></div>
+        <label class="settings-label" for="profileName">Display name</label>
+        <input class="settings-input" id="profileName" maxlength="32" placeholder="Your name">
+        <label class="settings-label" for="systemPrompt">Custom instructions</label>
+        <textarea class="settings-input settings-textarea" id="systemPrompt" maxlength="2000" placeholder="Tell CheatGPT how you prefer answers, e.g. explain step by step and use Khmer."></textarea>
+        <p class="settings-note">Custom instructions are sent with your chat request. Do not enter passwords, API keys, or other secrets.</p>
+        <div class="settings-footer"><button class="secondary-btn" id="resetSettings">Reset</button><button class="primary-btn" id="saveSettings">Save settings</button></div>
+      </section>
+    </div>
   </main>
 </div>
 
@@ -158,6 +186,24 @@ button{cursor:pointer}
 const chat=document.getElementById("chat"),input=document.getElementById("userInput");
 const sendButton=document.getElementById("sendButton"),historyBox=document.getElementById("history");
 let chats=loadChats(),currentId=null,conversation=[],busy=false,historyNewestFirst=true;
+let userSettings=loadSettings();
+function loadSettings(){try{return JSON.parse(localStorage.getItem("cheatgpt_settings")||"{}")}catch{return {}}}
+function saveSettings(){try{localStorage.setItem("cheatgpt_settings",JSON.stringify(userSettings))}catch{showToast("Could not save settings")}}
+function openSettings(){
+ document.getElementById("profileName").value=userSettings.profileName||"";
+ document.getElementById("systemPrompt").value=userSettings.systemPrompt||"";
+ document.getElementById("settingsModal").classList.add("show");
+ document.getElementById("settingsModal").setAttribute("aria-hidden","false");
+}
+function closeSettings(){
+ document.getElementById("settingsModal").classList.remove("show");
+ document.getElementById("settingsModal").setAttribute("aria-hidden","true");
+}
+function refreshProfile(){
+ const name=userSettings.profileName||"CheatGPT";
+ const profile=document.querySelector(".profile");
+ if(profile){profile.querySelector("b").textContent=name;profile.querySelector(".profile-avatar").textContent=(name.trim()[0]||"C").toUpperCase()}
+}
 
 function loadChats(){try{return JSON.parse(localStorage.getItem("cheatgpt_chats")||"[]")}catch{return []}}
 function saveChats(){try{localStorage.setItem("cheatgpt_chats",JSON.stringify(chats))}catch{showToast("Storage is full. Some history may not save.")}}
@@ -257,6 +303,16 @@ function duplicateChat(id){
 }
 function deleteChat(id){if(busy)return;const item=chats.find(c=>c.id===id);if(!item)return;if(!confirm(`Delete "${item.title||"New chat"}"? This cannot be undone.`))return;chats=chats.filter(c=>c.id!==id);if(currentId===id){currentId=null;conversation=[];showWelcome()}saveChats();renderHistory();showToast("Conversation deleted")}
 function toggleTheme(){document.body.classList.toggle("light");localStorage.setItem("cheatgpt_theme",document.body.classList.contains("light")?"light":"dark")}
+function exportCurrentChat(){
+ if(!conversation.length){showToast("There is no conversation to export");return}
+ const item=chats.find(c=>c.id===currentId);
+ const title=item?.title||"CheatGPT conversation";
+ const content=[title,"=".repeat(Math.min(title.length,60)),"",...conversation.map(m=>(m.role==="user"?(userSettings.profileName||"You"):"CheatGPT")+":\\n"+m.content+"\\n")].join("\\n");
+ const blob=new Blob([content],{type:"text/plain;charset=utf-8"});
+ const url=URL.createObjectURL(blob);const a=document.createElement("a");
+ a.href=url;a.download=(title.replace(/[^a-z0-9-_ ]/gi,"").trim().replace(/\\s+/g,"-")||"cheatgpt-chat")+".txt";
+ document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);showToast("Chat exported as TXT");
+}
 function openSidebar(){document.getElementById("sidebar").classList.add("open");document.getElementById("backdrop").classList.add("show")}
 function closeSidebar(){document.getElementById("sidebar").classList.remove("open");document.getElementById("backdrop").classList.remove("show")}
 async function sendMessage(){
@@ -266,7 +322,7 @@ async function sendMessage(){
  const answerBubble=addMessage("", "assistant",false);const typing=document.createElement("div");typing.className="typing";typing.innerHTML="<i></i><i></i><i></i>";answerBubble.appendChild(typing);
  busy=true;sendButton.disabled=true;let answer="";
  try{
-  const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:conversation.slice(-20)})});
+  const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[...(userSettings.systemPrompt?[{role:"system",content:userSettings.systemPrompt}]:[]),...conversation.slice(-20)]})});
   if(!response.ok){let data={};try{data=await response.json()}catch{}throw new Error(data.error||"Request failed")}
   if(!response.body)throw new Error("Streaming is not supported by this browser");
   const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="";
@@ -300,6 +356,18 @@ function startVoice(){
 document.getElementById("newChat").onclick=newChat;
 document.getElementById("sendButton").onclick=sendMessage;
 document.getElementById("themeButton").onclick=toggleTheme;
+document.getElementById("settingsButton").onclick=openSettings;
+document.getElementById("closeSettings").onclick=closeSettings;
+document.getElementById("settingsModal").addEventListener("click",e=>{if(e.target.id==="settingsModal")closeSettings()});
+document.getElementById("saveSettings").onclick=()=>{
+ userSettings.profileName=document.getElementById("profileName").value.trim().slice(0,32);
+ userSettings.systemPrompt=document.getElementById("systemPrompt").value.trim().slice(0,2000);
+ saveSettings();refreshProfile();closeSettings();showToast("Settings saved");
+};
+document.getElementById("resetSettings").onclick=()=>{
+ userSettings={};saveSettings();document.getElementById("profileName").value="";document.getElementById("systemPrompt").value="";refreshProfile();showToast("Settings reset");
+};
+document.getElementById("exportChat").onclick=exportCurrentChat;
 document.getElementById("menuButton").onclick=openSidebar;
 document.getElementById("backdrop").onclick=closeSidebar;
 document.getElementById("voiceButton").onclick=startVoice;
@@ -311,7 +379,7 @@ input.addEventListener("input",resizeInput);
 input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}});
 chat.addEventListener("click",e=>{const btn=e.target.closest("[data-prompt]");if(btn){input.value=btn.dataset.prompt;sendMessage()}});
 if(localStorage.getItem("cheatgpt_theme")==="light")document.body.classList.add("light");
-renderHistory();showWelcome();
+renderHistory();showWelcome();refreshProfile();
 </script>
 </body>
 </html>
