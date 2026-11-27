@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DARKGPT · AI CONNECT · KILO FIXED</title>
+<title>DARKGPT · AI CONNECT · REPLY FIXED</title>
 <style>
   :root {
     --bg:#000; --bg2:#0a0a0a; --panel:#120505; --border:#5a0000;
@@ -96,7 +96,7 @@
 <header>
   <div class="logo">
     <div class="mark">D</div>
-    <div><div class="lt">DARKGPT</div><div class="ls">AI CONNECT · KILO FIXED</div></div>
+    <div><div class="lt">DARKGPT</div><div class="ls">AI CONNECT · REPLY FIXED</div></div>
   </div>
   <div class="pill"><span class="dot on" id="proxyDot"></span> PROXY RUNNING ONLINE</div>
 </header>
@@ -181,7 +181,7 @@
 </main>
 
 <footer>
-  <span>DARKGPT · AI CONNECT · KILO FIXED</span>
+  <span>DARKGPT · AI CONNECT · REPLY FIXED</span>
   <span id="clock"></span>
 </footer>
 
@@ -254,39 +254,54 @@ async function fetchWithTimeout(input, init, timeoutMs = 10000) {
 }
 
 /* ============================================================
-   ROBUST RESPONSE EXTRACTOR (fixes Empty Response)
+   ROBUST RESPONSE EXTRACTOR (fixes Empty Response / Ai Not Reply)
    ============================================================ */
 function extractReply(data) {
   if (!data) return null;
 
+  // String / SSE / raw text
   if (typeof data === 'string') {
     const trimmed = data.trim();
     if (!trimmed) return null;
+    // SSE block
+    if (trimmed.startsWith('data:')) {
+      try {
+        const obj = JSON.parse(trimmed.replace(/^data:\s*/, ''));
+        return extractReply(obj);
+      } catch {}
+      return trimmed;
+    }
     try { return extractReply(JSON.parse(trimmed)); } catch { return trimmed; }
   }
 
   // OpenAI / OpenRouter / Kilo standard
-  const c = data.choices?.[0];
-  if (c) {
-    if (typeof c.message?.content === 'string' && c.message.content.length) return c.message.content;
-    if (typeof c.text === 'string' && c.text.length) return c.text;
-    if (typeof c.delta?.content === 'string' && c.delta.content.length) return c.delta.content;
+  const choices = data.choices;
+  if (Array.isArray(choices) && choices.length > 0) {
+    const c = choices[0];
+    if (c.message && typeof c.message.content === 'string' && c.message.content.trim().length) return c.message.content.trim();
+    if (typeof c.text === 'string' && c.text.trim().length) return c.text.trim();
+    if (c.delta && typeof c.delta.content === 'string' && c.delta.content.trim().length) return c.delta.content.trim();
   }
 
   // Google Gemini
-  const cand = data.candidates?.[0];
-  if (cand) {
-    if (typeof cand.content?.parts?.[0]?.text === 'string' && cand.content.parts[0].text.length) return cand.content.parts[0].text;
-    if (typeof cand.output === 'string' && cand.output.length) return cand.output;
+  if (data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
+    const cand = data.candidates[0];
+    if (cand.content && cand.content.parts && Array.isArray(cand.content.parts) && cand.content.parts.length > 0) {
+      const t = cand.content.parts[0].text;
+      if (typeof t === 'string' && t.trim().length) return t.trim();
+    }
+    if (typeof cand.output === 'string' && cand.output.trim().length) return cand.output.trim();
   }
 
-  // Flat shapes
-  const flat = ['response','text','content','reply','output','result','generated_text','answer'];
-  for (const f of flat) {
-    if (typeof data[f] === 'string' && data[f].length) return data[f];
+  // Flat / custom shapes
+  const keys = ['response','text','content','reply','output','result','generated_text','answer','message'];
+  for (const k of keys) {
+    if (typeof data[k] === 'string' && data[k].trim().length) return data[k].trim();
+    if (data[k] && typeof data[k] === 'object') {
+      if (typeof data[k].content === 'string' && data[k].content.trim().length) return data[k].content.trim();
+      if (typeof data[k].text === 'string' && data[k].text.trim().length) return data[k].text.trim();
+    }
   }
-  if (typeof data.message?.content === 'string' && data.message.content.length) return data.message.content;
-  if (typeof data.message === 'string' && data.message.length) return data.message;
 
   return null;
 }
