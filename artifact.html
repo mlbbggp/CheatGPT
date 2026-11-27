@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DARKGPT · AI CONNECT · LIVE PROXY</title>
+<title>DARKGPT · AI CONNECT · KILO FIXED</title>
 <style>
   :root {
     --bg:#000; --bg2:#0a0a0a; --panel:#120505; --border:#5a0000;
@@ -96,7 +96,7 @@
 <header>
   <div class="logo">
     <div class="mark">D</div>
-    <div><div class="lt">DARKGPT</div><div class="ls">AI CONNECT · LIVE PROXY</div></div>
+    <div><div class="lt">DARKGPT</div><div class="ls">AI CONNECT · KILO FIXED</div></div>
   </div>
   <div class="pill"><span class="dot on" id="proxyDot"></span> PROXY RUNNING ONLINE</div>
 </header>
@@ -105,7 +105,7 @@
   <div class="card">
     <div>
       <h1>DARKGPT · AI CONNECT</h1>
-      <p class="sub">Google AI Studio · OpenRouter · Kilo — live backend proxy, no CORS errors.</p>
+      <p class="sub">Google AI Studio · OpenRouter · Kilo — key saves, auto‑reconnects, empty‑response protected.</p>
     </div>
 
     <!-- STATUS -->
@@ -116,9 +116,9 @@
 
     <!-- PROXY URL -->
     <div class="field">
-      <label>BACKEND PROXY URL (deployed server.js)</label>
+      <label>BACKEND PROXY URL</label>
       <div class="input-wrap">
-        <input type="text" id="proxyUrl" placeholder="https://your-proxy.onrender.com">
+        <input type="text" id="proxyUrl" placeholder="https://darkgpt-proxy.onrender.com">
       </div>
     </div>
 
@@ -143,14 +143,14 @@
 
     <!-- ENDPOINT -->
     <div class="field">
-      <label>ENDPOINT (optional)</label>
-      <input type="text" id="endpoint" placeholder="https://api.provider.com/v1/chat/completions">
+      <label>ENDPOINT (full path)</label>
+      <input type="text" id="endpoint" placeholder="https://api.kilo.ai/v1/chat/completions">
     </div>
 
     <!-- MODEL -->
     <div class="field">
-      <label>MODEL</label>
-      <input type="text" id="model" placeholder="gemini-pro / kilo-chat" value="kilo-chat">
+      <label>MODEL (exact ID)</label>
+      <input type="text" id="model" placeholder="kilo-auto-free" value="kilo-auto-free">
     </div>
 
     <div class="row">
@@ -164,7 +164,7 @@
     <!-- CHAT -->
     <div class="chat" id="chatPanel">
       <div class="chat-log" id="chatLog">
-        <div class="msg-bubble system"><span class="who">SYSTEM</span>DARKGPT AI Connect initialised. Set proxy URL and enter your API key.</div>
+        <div class="msg-bubble system"><span class="who">SYSTEM</span>DARKGPT AI Connect initialised. Enter proxy URL and API key.</div>
       </div>
       <div class="chat-input">
         <textarea id="userInput" placeholder="Ask DARKGPT anything..." disabled></textarea>
@@ -181,7 +181,7 @@
 </main>
 
 <footer>
-  <span>DARKGPT · AI CONNECT · LIVE PROXY</span>
+  <span>DARKGPT · AI CONNECT · KILO FIXED</span>
   <span id="clock"></span>
 </footer>
 
@@ -204,13 +204,14 @@ const PROVIDERS = {
   },
   kilo: {
     name: 'Kilo',
-    endpoint: 'https://api.freellmapi.com/v1/chat/completions',
+    endpoint: 'https://api.kilo.ai/v1/chat/completions',
     authHeader: 'Authorization',
     authPrefix: 'Bearer '
   }
 };
 
-const DEFAULT_MODEL = 'kilo-chat';
+const DEFAULT_MODEL = 'kilo-auto-free';
+
 const LS_KEY   = 'darkgpt_ai_key';
 const LS_EP    = 'darkgpt_ai_endpoint';
 const LS_MODEL = 'darkgpt_ai_model';
@@ -227,29 +228,19 @@ let isLoading = false;
 let proxyHealthTimer = null;
 
 /* ============================================================
-   SAFE LOCAL STORAGE (sandbox‑safe)
+   SAFE LOCAL STORAGE
    ============================================================ */
 function safeSetItem(key, value) {
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
-  } catch (e) {
-    console.warn('localStorage write failed:', e);
-    showMsg('Key stored locally but may be lost on refresh (sandboxed context).', 'warn');
-  }
+  try { if (typeof localStorage !== 'undefined') localStorage.setItem(key, value); }
+  catch (e) { console.warn('localStorage write failed:', e); showMsg('Key stored locally but may be lost on refresh (sandboxed context).', 'warn'); }
 }
 function safeGetItem(key) {
-  try {
-    if (typeof localStorage !== 'undefined') return localStorage.getItem(key);
-    return null;
-  } catch (e) {
-    console.warn('localStorage read failed:', e);
-    return null;
-  }
+  try { if (typeof localStorage !== 'undefined') return localStorage.getItem(key); return null; }
+  catch (e) { console.warn('localStorage read failed:', e); return null; }
 }
 function safeRemoveItem(key) {
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
-  } catch (e) { console.warn('localStorage remove failed:', e); }
+  try { if (typeof localStorage !== 'undefined') localStorage.removeItem(key); }
+  catch (e) { console.warn('localStorage remove failed:', e); }
 }
 
 /* ============================================================
@@ -258,11 +249,46 @@ function safeRemoveItem(key) {
 async function fetchWithTimeout(input, init, timeoutMs = 10000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(input, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(id);
+  try { return await fetch(input, { ...init, signal: controller.signal }); }
+  finally { clearTimeout(id); }
+}
+
+/* ============================================================
+   ROBUST RESPONSE EXTRACTOR (fixes Empty Response)
+   ============================================================ */
+function extractReply(data) {
+  if (!data) return null;
+
+  if (typeof data === 'string') {
+    const trimmed = data.trim();
+    if (!trimmed) return null;
+    try { return extractReply(JSON.parse(trimmed)); } catch { return trimmed; }
   }
+
+  // OpenAI / OpenRouter / Kilo standard
+  const c = data.choices?.[0];
+  if (c) {
+    if (typeof c.message?.content === 'string' && c.message.content.length) return c.message.content;
+    if (typeof c.text === 'string' && c.text.length) return c.text;
+    if (typeof c.delta?.content === 'string' && c.delta.content.length) return c.delta.content;
+  }
+
+  // Google Gemini
+  const cand = data.candidates?.[0];
+  if (cand) {
+    if (typeof cand.content?.parts?.[0]?.text === 'string' && cand.content.parts[0].text.length) return cand.content.parts[0].text;
+    if (typeof cand.output === 'string' && cand.output.length) return cand.output;
+  }
+
+  // Flat shapes
+  const flat = ['response','text','content','reply','output','result','generated_text','answer'];
+  for (const f of flat) {
+    if (typeof data[f] === 'string' && data[f].length) return data[f];
+  }
+  if (typeof data.message?.content === 'string' && data.message.content.length) return data.message.content;
+  if (typeof data.message === 'string' && data.message.length) return data.message;
+
+  return null;
 }
 
 /* ============================================================
@@ -300,29 +326,23 @@ function setConnected(on) {
   sendBtn.disabled = !on;
   if (on) userInput.focus();
 }
+function toggleVis() {
+  const i = $('keyInput');
+  i.type = i.type === 'password' ? 'text' : 'password';
+}
 
 /* ============================================================
-   PROXY HEALTH (Running Online indicator)
+   PROXY HEALTH
    ============================================================ */
 async function checkProxyHealth() {
   const proxyUrl = $('proxyUrl').value.trim();
   const dot = $('proxyDot');
-  if (!proxyUrl) {
-    dot.classList.remove('on');
-    return false;
-  }
+  if (!proxyUrl) { dot.classList.remove('on'); return false; }
   try {
     const res = await fetchWithTimeout(`${proxyUrl.replace(/\/$/, '')}/health`, { method: 'GET' }, 5000);
-    if (res.ok) {
-      dot.classList.add('on');
-      return true;
-    }
-    dot.classList.remove('on');
-    return false;
-  } catch (e) {
-    dot.classList.remove('on');
-    return false;
-  }
+    if (res.ok) { dot.classList.add('on'); return true; }
+    dot.classList.remove('on'); return false;
+  } catch (e) { dot.classList.remove('on'); return false; }
 }
 function startProxyHealthLoop() {
   if (proxyHealthTimer) clearInterval(proxyHealthTimer);
@@ -340,16 +360,26 @@ function validateKey(k) {
   return null;
 }
 function validateEndpoint(ep) {
-  if (!ep) return null; // optional
+  if (!ep) return null;
   try { new URL(ep); return null; } catch { return 'Endpoint is not a valid URL.'; }
 }
 
 /* ============================================================
-   CONNECT (via proxy if configured)
+   SAVE CREDENTIALS
+   ============================================================ */
+function saveCredentials(k, ep, model, provId, proxyUrl) {
+  safeSetItem(LS_KEY, k);
+  safeSetItem(LS_EP, ep);
+  safeSetItem(LS_MODEL, model);
+  safeSetItem(LS_PROV, provId);
+  safeSetItem(LS_PROXY, proxyUrl);
+}
+
+/* ============================================================
+   CONNECT
    ============================================================ */
 async function connect() {
   hideMsg();
-
   const k = $('keyInput').value.trim();
   const epInput = $('endpoint').value.trim();
   const model = $('model').value.trim() || DEFAULT_MODEL;
@@ -365,11 +395,7 @@ async function connect() {
   const prov = PROVIDERS[provId];
   const endpoint = epInput || prov.endpoint;
 
-  safeSetItem(LS_KEY, k);
-  safeSetItem(LS_EP, endpoint);
-  safeSetItem(LS_MODEL, model);
-  safeSetItem(LS_PROV, provId);
-  safeSetItem(LS_PROXY, proxyUrl);
+  saveCredentials(k, endpoint, model, provId, proxyUrl);
 
   $('connectBtn').disabled = true;
   $('connectBtn').textContent = 'CONNECTING…';
@@ -386,17 +412,18 @@ async function connect() {
           endpoint,
           model,
           apiKey: k,
-          messages: [{ role: 'user', content: 'ping' }]
+          messages: [{ role: 'user', content: 'Say OK' }],
+          stream: false
         })
       }, 15000);
     } else {
       const headers = { 'Content-Type': 'application/json' };
       if (prov.authHeader === 'x-goog-apikey') headers['x-goog-apikey'] = k;
-      else headers['Authorization'] = `${prov.authPrefix}${k}`;
+      else headers[prov.authHeader] = `${prov.authPrefix}${k}`;
       res = await fetchWithTimeout(endpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 })
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 32, stream: false })
       }, 10000);
     }
 
@@ -413,6 +440,13 @@ async function connect() {
       throw new Error(`Connection failed: ${errMsg}`);
     }
 
+    const data = await res.json();
+    const reply = extractReply(data);
+    if (!reply) {
+      log('Warning: HTTP 200 but empty content. Raw: ' + JSON.stringify(data).slice(0, 400));
+      showMsg('Connected, but API returned empty content. Check MODEL name and ENDPOINT.', 'warn');
+    }
+
     setConnected(true);
     showMsg('Connected to ' + prov.name + '. Chat ready.', 'ok');
     log('Connected. Model: ' + model);
@@ -422,7 +456,7 @@ async function connect() {
   } catch (e) {
     let userMsg = e.message;
     if (e.name === 'TypeError' && e.message.includes('Failed to fetch')) {
-      userMsg = 'Failed to fetch: proxy unreachable or CORS blocked. Check your proxy URL.';
+      userMsg = 'Failed to fetch: proxy unreachable or network blocked. Check proxy URL.';
     } else if (e.name === 'AbortError') {
       userMsg = 'Request timed out.';
     }
@@ -449,7 +483,7 @@ function disconnect() {
   $('connectBtn').textContent = 'CONNECT & START AI';
   showMsg('Disconnected. Credentials removed.', 'info');
   log('Disconnected.');
-  addSystemMessage('Disconnected from ' + $('providerSelect').selectedOptions[0].text);
+  addSystemMessage('Disconnected.');
 }
 
 /* ============================================================
@@ -492,7 +526,7 @@ function getChatHistory() {
 }
 
 /* ============================================================
-   SEND MESSAGE (via proxy if configured)
+   SEND MESSAGE
    ============================================================ */
 async function sendMessage() {
   if (isLoading || !isConnected) return;
@@ -526,16 +560,16 @@ async function sendMessage() {
       res = await fetchWithTimeout(`${proxyUrl.replace(/\/$/, '')}/proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: provId, endpoint, model, apiKey: k, messages })
+        body: JSON.stringify({ provider: provId, endpoint, model, apiKey: k, messages, stream: false })
       }, 30000);
     } else {
       const headers = { 'Content-Type': 'application/json' };
       if (prov.authHeader === 'x-goog-apikey') headers['x-goog-apikey'] = k;
-      else headers['Authorization'] = `${prov.authPrefix}${k}`;
+      else headers[prov.authHeader] = `${prov.authPrefix}${k}`;
       res = await fetchWithTimeout(endpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ model, messages, max_tokens: 2048 })
+        body: JSON.stringify({ model, messages, max_tokens: 2048, stream: false })
       }, 30000);
     }
 
@@ -552,14 +586,30 @@ async function sendMessage() {
       throw new Error(err);
     }
 
-    const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content || data.candidates?.[0]?.content?.parts?.[0]?.text || '(empty response)';
-    addMessage('bot', reply);
-    log('Reply received.');
+    const raw = await res.text();
+    let data;
+    try { data = JSON.parse(raw); } catch { data = raw; }
+
+    const reply = extractReply(data);
+
+    if (reply && reply.trim().length) {
+      addMessage('bot', reply.trim());
+      log('Reply received (' + reply.length + ' chars).');
+    } else {
+      log('EMPTY RESPONSE. Model: ' + model + ' | Raw: ' + raw.slice(0, 500));
+      addSystemMessage(
+        'Empty response. Likely causes:\n' +
+        '• Wrong MODEL name (must match provider exactly)\n' +
+        '• ENDPOINT missing "/v1/chat/completions"\n' +
+        '• Provider returned streaming only – ensure stream:false\n\n' +
+        'Raw: ' + raw.slice(0, 200)
+      );
+      showMsg('Empty response — check model name and endpoint (see terminal).', 'warn');
+    }
   } catch (e) {
     let userMsg = e.message;
     if (e.name === 'TypeError' && e.message.includes('Failed to fetch')) {
-      userMsg = 'Failed to fetch: proxy unreachable or network blocked.';
+      userMsg = 'Failed to fetch: proxy unreachable.';
     } else if (e.name === 'AbortError') {
       userMsg = 'Request timed out.';
     }
@@ -578,10 +628,7 @@ async function sendMessage() {
    ENTER TO SEND
    ============================================================ */
 userInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
 
 /* ============================================================
@@ -604,30 +651,20 @@ async function autoConnectIfPossible() {
       res = await fetchWithTimeout(`${proxyUrl.replace(/\/$/, '')}/proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: provId, endpoint, model, apiKey: key, messages: [{ role: 'user', content: 'ping' }] })
+        body: JSON.stringify({ provider: provId, endpoint, model, apiKey: key, messages: [{ role: 'user', content: 'Say OK' }], stream: false })
       }, 15000);
     } else {
       const headers = { 'Content-Type': 'application/json' };
       if (prov.authHeader === 'x-goog-apikey') headers['x-goog-apikey'] = key;
-      else headers['Authorization'] = `${prov.authPrefix}${key}`;
+      else headers[prov.authHeader] = `${prov.authPrefix}${key}`;
       res = await fetchWithTimeout(endpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 })
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 32, stream: false })
       }, 10000);
     }
 
-    if (!res.ok) {
-      let err = `HTTP ${res.status}`;
-      try {
-        const j = await res.json();
-        if (j && j.message) throw new Error(j.message);
-      } catch (_) {
-        const txt = await res.text();
-        if (txt) throw new Error(`Failed to fetch: ${txt}`);
-      }
-      throw new Error('Connection failed: ' + (err || 'unknown error'));
-    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     setConnected(true);
     showMsg('Auto‑connected to ' + prov.name + '.', 'ok');
@@ -673,10 +710,7 @@ setInterval(clock, 1000); clock();
 $('connectBtn').onclick = connect;
 $('disconnectBtn').onclick = disconnect;
 $('clearBtn').onclick = clearKey;
-$('showBtn').onclick = () => {
-  const i = $('keyInput');
-  i.type = i.type === 'password' ? 'text' : 'password';
-};
+$('showBtn').onclick = toggleVis;
 $('proxyUrl').addEventListener('change', startProxyHealthLoop);
 $('providerSelect').addEventListener('change', startProxyHealthLoop);
 </script>
