@@ -4,14 +4,14 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors({ origin: true }));
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '4mb' }));
 
 // Root route (fixes "Cannot GET /")
 app.get('/', (req, res) => {
   res.send('DARKGPT Proxy Online');
 });
 
-// Health check (for frontend "Running Online" pill)
+// Health check (frontend "Running Online" pill)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
@@ -42,7 +42,7 @@ app.post('/proxy', async (req, res) => {
         }))
       };
     } else {
-      // Kilo / OpenRouter / OpenAI-compatible: force non-stream
+      // Force non-streaming for Kilo / OpenRouter / OpenAI-compatible
       body = { model, messages, max_tokens: 2048, stream: false };
     }
 
@@ -57,7 +57,8 @@ app.post('/proxy', async (req, res) => {
     if (contentType.includes('application/json')) {
       data = await targetRes.json();
     } else {
-      data = { text: await targetRes.text() };
+      const text = await targetRes.text();
+      try { data = JSON.parse(text); } catch { data = { text }; }
     }
 
     res.status(targetRes.status).json(data);
